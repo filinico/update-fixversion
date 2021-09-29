@@ -5,6 +5,9 @@ inputs:
   GITHUB_TOKEN:
     description: "User token of service account."
     required: true
+  JIRA_PROJECTS_IDS:
+    description: "projects ids from jira cloud. list comma separated"
+    required: true
 runs:
   using: 'node12'
   main: 'dist/index.js'
