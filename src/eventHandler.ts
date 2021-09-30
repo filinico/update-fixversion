@@ -4,15 +4,18 @@ import {
   extractIssuesFromCommitMessage,
   getPRIdFromCommit
 } from './commitMessageExtraction'
+import {JiraContext} from './jiraApi'
 import {extractJiraIssues} from './gitRepo'
-
-export interface JiraContext {
-  projectsKeys: string[]
-}
+import {getFixVersionFromVersionSetting} from './versionSetting'
+import {updateJira} from './jiraUpdate'
 
 export const onPush = async (
   actionContext: GitHubContext,
-  jiraContext: JiraContext
+  jiraContext: JiraContext,
+  fixVersionOverride: string,
+  versionSettingFilePath: string,
+  tagPrefix: string,
+  versionPrefix: string
 ): Promise<void> => {
   const {context, workspace} = actionContext
   const {
@@ -60,4 +63,20 @@ export const onPush = async (
     }
   }
   core.info(`extractedJiraIssues=${extractedJiraIssues.join(',')}`)
+  if (!extractedJiraIssues.length) {
+    core.info('No Jira issues extracted.')
+    return
+  }
+  let fixVersion: string
+  if (fixVersionOverride !== '') {
+    fixVersion = fixVersionOverride
+  } else {
+    fixVersion = getFixVersionFromVersionSetting(
+      versionSettingFilePath,
+      tagPrefix,
+      versionPrefix,
+      workspace
+    )
+  }
+  await updateJira(jiraContext, extractedJiraIssues, fixVersion)
 }
