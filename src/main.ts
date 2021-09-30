@@ -25,7 +25,9 @@ async function run(): Promise<void> {
       workspace: process.env.GITHUB_WORKSPACE
     }
     const jiraContext = {
-      projectsKeys: core.getInput('JIRA_PROJECTS_KEYS', {required: true})
+      projectsKeys: core
+        .getInput('JIRA_PROJECTS_KEYS', {required: true})
+        .split(',')
     }
     if (process.env.GITHUB_EVENT_NAME === 'push') {
       core.info(`start onPush`)

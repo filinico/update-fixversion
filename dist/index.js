@@ -8722,9 +8722,9 @@ const getRevisionFromOldestCommit = (actionContext, prId) => __awaiter(void 0, v
     });
     const commits = response.data;
     if (commits.length < 1) {
-        throw new Error(`No commits found from PR#${prId}`);
+        return null;
     }
-    return commits[0].sha;
+    return commits[0];
 });
 
 ;// CONCATENATED MODULE: ./src/commitMessageExtraction.ts
@@ -8812,11 +8812,27 @@ const onPush = (actionContext, jiraContext) => eventHandler_awaiter(void 0, void
     let extractedJiraIssues;
     const prId = getPRIdFromCommit(message);
     if (!prId) {
-        extractedJiraIssues = extractIssuesFromCommitMessage(message, projectsKeys.split(','));
+        extractedJiraIssues = extractIssuesFromCommitMessage(message, projectsKeys);
     }
     else {
-        const oldestCommitRevision = yield getRevisionFromOldestCommit(actionContext, parseInt(prId));
-        extractedJiraIssues = yield extractJiraIssues(oldestCommitRevision, id, workspace, projectsKeys);
+        const oldestCommitRef = yield getRevisionFromOldestCommit(actionContext, parseInt(prId));
+        if (!oldestCommitRef) {
+            extractedJiraIssues = extractIssuesFromCommitMessage(message, projectsKeys);
+        }
+        else {
+            const oldestCommitRevision = oldestCommitRef.sha;
+            const oldestCommitMessage = oldestCommitRef.commit.message;
+            const extractedJiraIssuesFromCommit = extractIssuesFromCommitMessage(oldestCommitMessage, projectsKeys);
+            if (oldestCommitRevision !== id) {
+                const extractedJiraIssuesFromLogs = yield extractJiraIssues(oldestCommitRevision, id, workspace, projectsKeys.join(','));
+                extractedJiraIssues = [
+                    ...new Set(extractedJiraIssuesFromCommit.concat(extractedJiraIssuesFromLogs))
+                ];
+            }
+            else {
+                extractedJiraIssues = extractedJiraIssuesFromCommit;
+            }
+        }
     }
     core.info(`extractedJiraIssues=${extractedJiraIssues.join(',')}`);
 });
@@ -8854,6 +8870,7 @@ function run() {
             };
             const jiraContext = {
                 projectsKeys: core.getInput('JIRA_PROJECTS_KEYS', { required: true })
+                    .split(',')
             };
             if (process.env.GITHUB_EVENT_NAME === 'push') {
                 core.info(`start onPush`);
