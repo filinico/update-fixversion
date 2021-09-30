@@ -7,10 +7,10 @@ export const extractJiraIssues = async (
   githubWorkspace: string,
   projectsKeys: string
 ): Promise<string[]> => {
-  await exec(`chmod +x ${__dirname}/extract-issues`)
+  await exec(`chmod +x ${__dirname}/../src/extract-issues`)
   await exec(`cd ${githubWorkspace}`)
   const {stdout, stderr} = await exec(
-    `${__dirname}/extract-issues -o ${oldestCommitRevision} -h ${headRevision} -p ${projectsKeys}`
+    `${__dirname}/../src/extract-issues -o ${oldestCommitRevision} -h ${headRevision} -p ${projectsKeys}`
   )
   core.info(`issueKeysCommaSeparated:--${stdout}--`)
   if (stderr) {

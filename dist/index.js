@@ -8769,9 +8769,9 @@ var gitRepo_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _
 
 
 const extractJiraIssues = (oldestCommitRevision, headRevision, githubWorkspace, projectsKeys) => gitRepo_awaiter(void 0, void 0, void 0, function* () {
-    yield exec(`chmod +x ${__dirname}/extract-issues`);
+    yield exec(`chmod +x ${__dirname}/../src/extract-issues`);
     yield exec(`cd ${githubWorkspace}`);
-    const { stdout, stderr } = yield exec(`${__dirname}/extract-issues -o ${oldestCommitRevision} -h ${headRevision} -p ${projectsKeys}`);
+    const { stdout, stderr } = yield exec(`${__dirname}/../src/extract-issues -o ${oldestCommitRevision} -h ${headRevision} -p ${projectsKeys}`);
     core.info(`issueKeysCommaSeparated:--${stdout}--`);
     if (stderr) {
         core.error(stderr.toString());
