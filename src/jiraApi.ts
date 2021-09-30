@@ -29,16 +29,17 @@ export interface SearchedJiraIssue {
   id?: string
   self?: string
   key: string
-  fields: {
-    summary?: string
-  }
+  fields: JiraFields
 }
 
 interface JiraFields {
   summary?: string
   issuetype?: {
     id: string
+    subtask: boolean
+    name: string
   }
+  parent?: SearchedJiraIssue
   project?: {
     id: string
   }

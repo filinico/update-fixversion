@@ -12896,8 +12896,21 @@ const updateJira = (context, issueKeys, fixVersion) => __awaiter(void 0, void 0,
         return;
     }
     core.info(`fixVersion:[${fixVersion}]`);
-    const issues = yield filterIssuesWithoutCurrentFixVersion(context, issueKeys, fixVersion);
-    // TODO: include parent issues like stories
+    const issuesWithSubTasks = yield filterIssuesWithoutCurrentFixVersion(context, issueKeys, fixVersion);
+    core.info(`issuesWithSubTasks:[${issuesWithSubTasks
+        .map(issue => issue.key)
+        .join(',')}]`);
+    const issuesKeysWithoutSubTasks = issuesWithSubTasks.map(issue => {
+        var _a;
+        if (((_a = issue.fields.issuetype) === null || _a === void 0 ? void 0 : _a.subtask) && issue.fields.parent) {
+            return issue.fields.parent.key;
+        }
+        else {
+            return issue.key;
+        }
+    });
+    core.info(`issuesKeysWithoutSubTasks:[${issuesKeysWithoutSubTasks.join(',')}]`);
+    const issues = yield filterIssuesWithoutCurrentFixVersion(context, issuesKeysWithoutSubTasks, fixVersion);
     if (!issues || issues.length === 0) {
         return;
     }
@@ -12937,7 +12950,9 @@ const filterIssuesWithoutCurrentFixVersion = (context, issueKeys, fixVersion) =>
     const searchIssuesWithoutCurrentFixVersion = `project in (${projectsKeys.join(',')}) AND (fixVersion not in (${fixVersion}) OR fixVersion is EMPTY) AND issuekey in (${groupedIssues})`;
     core.info(`searchIssuesQuery:[${searchIssuesWithoutCurrentFixVersion}]`);
     return yield (0, jiraApi_1.searchIssues)(context, searchIssuesWithoutCurrentFixVersion, [
-        'summary'
+        'summary',
+        'issuetype',
+        'parent'
     ]);
 });
 const getJiraVersion = (context, fixVersion, projectKey) => __awaiter(void 0, void 0, void 0, function* () {

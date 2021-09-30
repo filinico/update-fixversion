@@ -18,12 +18,31 @@ export const updateJira = async (
     return
   }
   core.info(`fixVersion:[${fixVersion}]`)
-  const issues = await filterIssuesWithoutCurrentFixVersion(
+  const issuesWithSubTasks = await filterIssuesWithoutCurrentFixVersion(
     context,
     issueKeys,
     fixVersion
   )
-  // TODO: include parent issues like stories
+  core.info(
+    `issuesWithSubTasks:[${issuesWithSubTasks
+      .map(issue => issue.key)
+      .join(',')}]`
+  )
+  const issuesKeysWithoutSubTasks = issuesWithSubTasks.map(issue => {
+    if (issue.fields.issuetype?.subtask && issue.fields.parent) {
+      return issue.fields.parent.key
+    } else {
+      return issue.key
+    }
+  })
+  core.info(
+    `issuesKeysWithoutSubTasks:[${issuesKeysWithoutSubTasks.join(',')}]`
+  )
+  const issues = await filterIssuesWithoutCurrentFixVersion(
+    context,
+    issuesKeysWithoutSubTasks,
+    fixVersion
+  )
   if (!issues || issues.length === 0) {
     return
   }
@@ -70,7 +89,9 @@ const filterIssuesWithoutCurrentFixVersion = async (
   )}) AND (fixVersion not in (${fixVersion}) OR fixVersion is EMPTY) AND issuekey in (${groupedIssues})`
   core.info(`searchIssuesQuery:[${searchIssuesWithoutCurrentFixVersion}]`)
   return await searchIssues(context, searchIssuesWithoutCurrentFixVersion, [
-    'summary'
+    'summary',
+    'issuetype',
+    'parent'
   ])
 }
 
