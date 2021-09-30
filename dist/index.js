@@ -8323,6 +8323,198 @@ module.exports = eval("require")("encoding");
 
 /***/ }),
 
+/***/ 2809:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
+
+"use strict";
+var __webpack_unused_export__;
+
+
+__webpack_unused_export__ = ({
+  value: true
+});
+__webpack_unused_export__ = promisifyChildProcess;
+exports.Cs = spawn;
+exports.rM = fork;
+exports.tL = exports.GL = void 0;
+
+const child_process = __nccwpck_require__(3129);
+
+const bindFinally = promise => (handler // don't assume we're running in an environment with Promise.finally
+) => promise.then(async value => {
+  await handler();
+  return value;
+}, async reason => {
+  await handler();
+  throw reason;
+});
+
+function joinChunks(chunks, encoding) {
+  if (chunks[0] instanceof Buffer) {
+    const buffer = Buffer.concat(chunks);
+    if (encoding) return buffer.toString(encoding);
+    return buffer;
+  }
+
+  return chunks.join('');
+}
+
+function promisifyChildProcess(child, options = {}) {
+  const _promise = new Promise((resolve, reject) => {
+    const {
+      encoding,
+      killSignal
+    } = options;
+    const captureStdio = encoding != null || options.maxBuffer != null;
+    const maxBuffer = options.maxBuffer != null ? options.maxBuffer : 200 * 1024;
+    let error;
+    let bufferSize = 0;
+    const stdoutChunks = [];
+    const stderrChunks = [];
+
+    const capture = chunks => data => {
+      const remaining = Math.max(0, maxBuffer - bufferSize);
+      const byteLength = Buffer.byteLength(data, 'utf8');
+      bufferSize += Math.min(remaining, byteLength);
+
+      if (byteLength > remaining) {
+        error = new Error(`maxBuffer size exceeded`); // $FlowFixMe
+
+        child.kill(killSignal ? killSignal : 'SIGTERM');
+        data = data.slice(0, remaining);
+      }
+
+      chunks.push(data);
+    };
+
+    if (captureStdio) {
+      if (child.stdout) child.stdout.on('data', capture(stdoutChunks));
+      if (child.stderr) child.stderr.on('data', capture(stderrChunks));
+    }
+
+    child.on('error', reject);
+
+    function done(code, signal) {
+      if (!error) {
+        if (code != null && code !== 0) {
+          error = new Error(`Process exited with code ${code}`);
+        } else if (signal != null) {
+          error = new Error(`Process was killed with ${signal}`);
+        }
+      }
+
+      function defineOutputs(obj) {
+        obj.code = code;
+        obj.signal = signal;
+
+        if (captureStdio) {
+          obj.stdout = joinChunks(stdoutChunks, encoding);
+          obj.stderr = joinChunks(stderrChunks, encoding);
+        } else {
+          const warn = prop => ({
+            configurable: true,
+            enumerable: true,
+
+            get() {
+              /* eslint-disable no-console */
+              console.error(new Error(`To get ${prop} from a spawned or forked process, set the \`encoding\` or \`maxBuffer\` option`).stack.replace(/^Error/, 'Warning'));
+              /* eslint-enable no-console */
+
+              return null;
+            }
+
+          });
+
+          Object.defineProperties(obj, {
+            stdout: warn('stdout'),
+            stderr: warn('stderr')
+          });
+        }
+      }
+
+      const finalError = error;
+
+      if (finalError) {
+        defineOutputs(finalError);
+        reject(finalError);
+      } else {
+        const output = {};
+        defineOutputs(output);
+        resolve(output);
+      }
+    }
+
+    child.on('close', done);
+  });
+
+  return Object.create(child, {
+    then: {
+      value: _promise.then.bind(_promise)
+    },
+    catch: {
+      value: _promise.catch.bind(_promise)
+    },
+    finally: {
+      value: bindFinally(_promise)
+    }
+  });
+}
+
+function spawn(command, args, options) {
+  return promisifyChildProcess(child_process.spawn(command, args, options), Array.isArray(args) ? options : args);
+}
+
+function fork(module, args, options) {
+  return promisifyChildProcess(child_process.fork(module, args, options), Array.isArray(args) ? options : args);
+}
+
+function promisifyExecMethod(method) {
+  return (...args) => {
+    let child;
+
+    const _promise = new Promise((resolve, reject) => {
+      child = method(...args, (err, stdout, stderr) => {
+        if (err) {
+          err.stdout = stdout;
+          err.stderr = stderr;
+          reject(err);
+        } else {
+          resolve({
+            code: 0,
+            signal: null,
+            stdout,
+            stderr
+          });
+        }
+      });
+    });
+
+    if (!child) {
+      throw new Error('unexpected error: child has not been initialized');
+    }
+
+    return Object.create(child, {
+      then: {
+        value: _promise.then.bind(_promise)
+      },
+      catch: {
+        value: _promise.catch.bind(_promise)
+      },
+      finally: {
+        value: bindFinally(_promise)
+      }
+    });
+  };
+}
+
+const exec = promisifyExecMethod(child_process.exec);
+exports.GL = exec;
+const execFile = promisifyExecMethod(child_process.execFile);
+exports.tL = execFile;
+
+
+/***/ }),
+
 /***/ 68:
 /***/ ((module) => {
 
@@ -8336,6 +8528,14 @@ module.exports = JSON.parse('[[[0,44],"disallowed_STD3_valid"],[[45,46],"valid"]
 
 "use strict";
 module.exports = require("assert");
+
+/***/ }),
+
+/***/ 3129:
+/***/ ((module) => {
+
+"use strict";
+module.exports = require("child_process");
 
 /***/ }),
 
@@ -8476,35 +8676,6 @@ module.exports = require("zlib");
 /******/ 	}
 /******/ 	
 /************************************************************************/
-/******/ 	/* webpack/runtime/compat get default export */
-/******/ 	(() => {
-/******/ 		// getDefaultExport function for compatibility with non-harmony modules
-/******/ 		__nccwpck_require__.n = (module) => {
-/******/ 			var getter = module && module.__esModule ?
-/******/ 				() => (module['default']) :
-/******/ 				() => (module);
-/******/ 			__nccwpck_require__.d(getter, { a: getter });
-/******/ 			return getter;
-/******/ 		};
-/******/ 	})();
-/******/ 	
-/******/ 	/* webpack/runtime/define property getters */
-/******/ 	(() => {
-/******/ 		// define getter functions for harmony exports
-/******/ 		__nccwpck_require__.d = (exports, definition) => {
-/******/ 			for(var key in definition) {
-/******/ 				if(__nccwpck_require__.o(definition, key) && !__nccwpck_require__.o(exports, key)) {
-/******/ 					Object.defineProperty(exports, key, { enumerable: true, get: definition[key] });
-/******/ 				}
-/******/ 			}
-/******/ 		};
-/******/ 	})();
-/******/ 	
-/******/ 	/* webpack/runtime/hasOwnProperty shorthand */
-/******/ 	(() => {
-/******/ 		__nccwpck_require__.o = (obj, prop) => (Object.prototype.hasOwnProperty.call(obj, prop))
-/******/ 	})();
-/******/ 	
 /******/ 	/* webpack/runtime/make namespace object */
 /******/ 	(() => {
 /******/ 		// define __esModule on exports
@@ -8525,12 +8696,68 @@ var __webpack_exports__ = {};
 // This entry need to be wrapped in an IIFE because it need to be in strict mode.
 (() => {
 "use strict";
+// ESM COMPAT FLAG
 __nccwpck_require__.r(__webpack_exports__);
-/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0__ = __nccwpck_require__(2186);
-/* harmony import */ var _actions_core__WEBPACK_IMPORTED_MODULE_0___default = /*#__PURE__*/__nccwpck_require__.n(_actions_core__WEBPACK_IMPORTED_MODULE_0__);
-/* harmony import */ var _actions_github__WEBPACK_IMPORTED_MODULE_1__ = __nccwpck_require__(5438);
-/* harmony import */ var _actions_github__WEBPACK_IMPORTED_MODULE_1___default = /*#__PURE__*/__nccwpck_require__.n(_actions_github__WEBPACK_IMPORTED_MODULE_1__);
+
+// EXTERNAL MODULE: ./node_modules/@actions/core/lib/core.js
+var core = __nccwpck_require__(2186);
+// EXTERNAL MODULE: ./node_modules/@actions/github/lib/github.js
+var github = __nccwpck_require__(5438);
+;// CONCATENATED MODULE: ./src/gitHubApi.ts
 var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+const getRevisionFromOldestCommit = (actionContext, prId) => __awaiter(void 0, void 0, void 0, function* () {
+    const { octokit, context } = actionContext;
+    const response = yield octokit.pulls.listCommits({
+        owner: context.repo.owner,
+        repo: context.repo.repo,
+        pull_number: prId
+    });
+    const commits = response.data;
+    if (commits.length < 1) {
+        return null;
+    }
+    return commits[0];
+});
+
+;// CONCATENATED MODULE: ./src/commitMessageExtraction.ts
+const getPRIdFromCommit = (commitMessage) => {
+    const regex = /#[0-9]+/g;
+    const matches = commitMessage.match(regex);
+    if (matches) {
+        return matches[0].replace('#', '');
+    }
+    return matches;
+};
+const extractIssuesFromCommitMessage = (commitMessage, projectsKeys) => {
+    const projects = projectsKeys.join('|');
+    const regex = `(${projects})-[0-9]{5,6}`;
+    const matches = commitMessage.match(new RegExp(regex, 'g'));
+    if (!matches) {
+        return [];
+    }
+    return matches;
+};
+
+// EXTERNAL MODULE: ./node_modules/promisify-child-process/index.cjs
+var promisify_child_process = __nccwpck_require__(2809);
+;// CONCATENATED MODULE: ./node_modules/promisify-child-process/index.mjs
+
+const exec = promisify_child_process/* exec */.GL
+const execFile = promisify_child_process/* execFile */.tL
+const spawn = promisify_child_process/* spawn */.Cs
+const fork = promisify_child_process/* fork */.rM
+/* harmony default export */ const node_modules_promisify_child_process = ((/* unused pure expression or super */ null && (cjsModule)));
+
+;// CONCATENATED MODULE: ./src/gitRepo.ts
+var gitRepo_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
         function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
@@ -8541,18 +8768,120 @@ var __awaiter = (undefined && undefined.__awaiter) || function (thisArg, _argume
 };
 
 
+const extractJiraIssues = (oldestCommitRevision, headRevision, githubWorkspace, projectsKeys) => gitRepo_awaiter(void 0, void 0, void 0, function* () {
+    yield exec(`chmod +x ${__dirname}/../src/extract-issues`);
+    yield exec(`cd ${githubWorkspace}`);
+    const { stdout, stderr } = yield exec(`${__dirname}/../src/extract-issues -o ${oldestCommitRevision} -h ${headRevision} -p ${projectsKeys}`);
+    core.info(`issueKeysCommaSeparated:--${stdout}--`);
+    if (stderr) {
+        core.error(stderr.toString());
+    }
+    const issueKeysCommaSeparated = stdout;
+    return convertScriptResults(issueKeysCommaSeparated);
+});
+const convertScriptResults = (issueKeysCommaSeparated) => {
+    let issueKeys = [];
+    if (issueKeysCommaSeparated && issueKeysCommaSeparated.includes(',')) {
+        const searchRegExp = /\s/g;
+        const resultsFormatted = issueKeysCommaSeparated.replace(searchRegExp, '');
+        if (resultsFormatted !== '') {
+            issueKeys = resultsFormatted.split(',');
+        }
+    }
+    return issueKeys;
+};
+
+;// CONCATENATED MODULE: ./src/eventHandler.ts
+var eventHandler_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+
+
+
+
+const onPush = (actionContext, jiraContext) => eventHandler_awaiter(void 0, void 0, void 0, function* () {
+    const { context, workspace } = actionContext;
+    const { payload: { head_commit: { id, message } } } = context;
+    const { projectsKeys } = jiraContext;
+    let extractedJiraIssues;
+    const prId = getPRIdFromCommit(message);
+    if (!prId) {
+        extractedJiraIssues = extractIssuesFromCommitMessage(message, projectsKeys);
+    }
+    else {
+        const oldestCommitRef = yield getRevisionFromOldestCommit(actionContext, parseInt(prId));
+        if (!oldestCommitRef) {
+            extractedJiraIssues = extractIssuesFromCommitMessage(message, projectsKeys);
+        }
+        else {
+            const oldestCommitRevision = oldestCommitRef.sha;
+            const oldestCommitMessage = oldestCommitRef.commit.message;
+            const extractedJiraIssuesFromCommit = extractIssuesFromCommitMessage(oldestCommitMessage, projectsKeys);
+            if (oldestCommitRevision !== id) {
+                const extractedJiraIssuesFromLogs = yield extractJiraIssues(oldestCommitRevision, id, workspace, projectsKeys.join(','));
+                extractedJiraIssues = [
+                    ...new Set(extractedJiraIssuesFromCommit.concat(extractedJiraIssuesFromLogs))
+                ];
+            }
+            else {
+                extractedJiraIssues = extractedJiraIssuesFromCommit;
+            }
+        }
+    }
+    core.info(`extractedJiraIssues=${extractedJiraIssues.join(',')}`);
+});
+
+;// CONCATENATED MODULE: ./src/main.ts
+var main_awaiter = (undefined && undefined.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+
+
+
 function run() {
-    return __awaiter(this, void 0, void 0, function* () {
+    return main_awaiter(this, void 0, void 0, function* () {
         try {
-            const githubToken = _actions_core__WEBPACK_IMPORTED_MODULE_0__.getInput('GITHUB_TOKEN', { required: true });
-            _actions_github__WEBPACK_IMPORTED_MODULE_1__.getOctokit(githubToken);
-            _actions_core__WEBPACK_IMPORTED_MODULE_0__.info(`GITHUB_EVENT_NAME=${process.env.GITHUB_EVENT_NAME}`);
-            _actions_core__WEBPACK_IMPORTED_MODULE_0__.info(`GITHUB context action=${_actions_github__WEBPACK_IMPORTED_MODULE_1__.context.payload.action}`);
+            const githubToken = core.getInput('GITHUB_TOKEN', { required: true });
+            if (!process.env.GITHUB_WORKSPACE) {
+                core.setFailed('Please use the "actions/checkout" action to checkout your repository.');
+                return;
+            }
+            core.info(`GITHUB_WORKSPACE=${process.env.GITHUB_WORKSPACE}`);
+            core.info(`Current dir=${__dirname}`);
+            core.info(`GITHUB_EVENT_NAME=${process.env.GITHUB_EVENT_NAME}`);
+            core.info(`GITHUB context action=${github.context.payload.action}`);
+            const octokit = github.getOctokit(githubToken);
+            const gitHubContext = {
+                octokit,
+                context: github.context,
+                workspace: process.env.GITHUB_WORKSPACE
+            };
+            const jiraContext = {
+                projectsKeys: core.getInput('JIRA_PROJECTS_KEYS', { required: true })
+                    .split(',')
+            };
+            if (process.env.GITHUB_EVENT_NAME === 'push') {
+                core.info(`start onPush`);
+                yield onPush(gitHubContext, jiraContext);
+                core.info(`onPush finished`);
+            }
         }
         catch (error) {
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-ignore
-            _actions_core__WEBPACK_IMPORTED_MODULE_0__.setFailed(error.message);
+            core.setFailed(error.message);
         }
     });
 }
