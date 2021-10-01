@@ -49,16 +49,21 @@ export const updateJira = async (
   const currentIssueKeys = issues.map(issue => issue.key)
   core.info(`currentIssueKeys:[${currentIssueKeys.join(',')}]`)
   const {projectsKeys} = context
-  const fixVersionUpdates: JiraIssue[] = []
+  const fixVersionUpdates: (JiraIssue | null)[] = []
   for (const projectKey of projectsKeys) {
     const version = await getJiraVersion(context, fixVersion, projectKey)
-    const fixVersionUpdate: JiraIssue = {
-      update: {
-        fixVersions: [
-          {
-            add: {id: version.id}
-          }
-        ]
+    let fixVersionUpdate: JiraIssue | null
+    if (!version) {
+      fixVersionUpdate = null
+    } else {
+      fixVersionUpdate = {
+        update: {
+          fixVersions: [
+            {
+              add: {id: version.id}
+            }
+          ]
+        }
       }
     }
     fixVersionUpdates.push(fixVersionUpdate)
@@ -73,7 +78,14 @@ export const updateJira = async (
         break
       }
     }
-    await updateIssue(context, issueKey, fixVersionUpdates[index])
+    const currentFixVersionUpdate = fixVersionUpdates[index]
+    if (!currentFixVersionUpdate) {
+      core.error(
+        `Issue [${issueKey}] not updated because version doesn't exist on the Jira project.`
+      )
+      continue
+    }
+    await updateIssue(context, issueKey, currentFixVersionUpdate)
   }
 }
 
@@ -99,14 +111,13 @@ export const getJiraVersion = async (
   context: JiraContext,
   fixVersion: string,
   projectKey: string
-): Promise<JiraVersion> => {
+): Promise<JiraVersion | null> => {
   const versions = await listProjectVersions(context, projectKey)
   const result = versions.filter(i => i.name === fixVersion)
-  let version: JiraVersion
+  let version: JiraVersion | null
   if (!result || result.length === 0) {
-    throw new Error(
-      `version [${fixVersion}] not found in project [${projectKey}]`
-    )
+    core.error(`version [${fixVersion}] not found in project [${projectKey}]`)
+    version = null
   } else {
     version = result[0]
     core.info(`version found:[${version.id}]`)

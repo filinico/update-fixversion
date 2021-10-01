@@ -12920,15 +12920,21 @@ const updateJira = (context, issueKeys, fixVersion) => __awaiter(void 0, void 0,
     const fixVersionUpdates = [];
     for (const projectKey of projectsKeys) {
         const version = yield (0, exports.getJiraVersion)(context, fixVersion, projectKey);
-        const fixVersionUpdate = {
-            update: {
-                fixVersions: [
-                    {
-                        add: { id: version.id }
-                    }
-                ]
-            }
-        };
+        let fixVersionUpdate;
+        if (!version) {
+            fixVersionUpdate = null;
+        }
+        else {
+            fixVersionUpdate = {
+                update: {
+                    fixVersions: [
+                        {
+                            add: { id: version.id }
+                        }
+                    ]
+                }
+            };
+        }
         fixVersionUpdates.push(fixVersionUpdate);
     }
     for (const issueKey of currentIssueKeys) {
@@ -12940,7 +12946,12 @@ const updateJira = (context, issueKeys, fixVersion) => __awaiter(void 0, void 0,
                 break;
             }
         }
-        yield (0, jiraApi_1.updateIssue)(context, issueKey, fixVersionUpdates[index]);
+        const currentFixVersionUpdate = fixVersionUpdates[index];
+        if (!currentFixVersionUpdate) {
+            core.error(`Issue [${issueKey}] not updated because version doesn't exist on the Jira project.`);
+            continue;
+        }
+        yield (0, jiraApi_1.updateIssue)(context, issueKey, currentFixVersionUpdate);
     }
 });
 exports.updateJira = updateJira;
@@ -12960,7 +12971,8 @@ const getJiraVersion = (context, fixVersion, projectKey) => __awaiter(void 0, vo
     const result = versions.filter(i => i.name === fixVersion);
     let version;
     if (!result || result.length === 0) {
-        throw new Error(`version [${fixVersion}] not found in project [${projectKey}]`);
+        core.error(`version [${fixVersion}] not found in project [${projectKey}]`);
+        version = null;
     }
     else {
         version = result[0];
