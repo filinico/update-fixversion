@@ -14,8 +14,8 @@ inputs:
   JIRA_TOKEN:
     description: "token for jira cloud"
     required: true
-  JIRA_PROJECTS_IDS:
-    description: "projects ids from jira cloud. list comma separated"
+  JIRA_PROJECTS_KEYS:
+    description: "projects keys from jira cloud. list comma separated"
     required: true
   FIX_VERSION_OVERRIDE:
     description: "set the fix version as constant"
