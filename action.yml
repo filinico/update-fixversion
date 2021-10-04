@@ -5,9 +5,30 @@ inputs:
   GITHUB_TOKEN:
     description: "User token of service account."
     required: true
-  JIRA_PROJECTS_IDS:
-    description: "projects ids from jira cloud. list comma separated"
+  JIRA_SUBDOMAIN:
+    description: "subdomain to jira cloud"
     required: true
+  JIRA_USER:
+    description: "username for jira cloud"
+    required: true
+  JIRA_TOKEN:
+    description: "token for jira cloud"
+    required: true
+  JIRA_PROJECTS_KEYS:
+    description: "projects keys from jira cloud. list comma separated"
+    required: true
+  FIX_VERSION_OVERRIDE:
+    description: "set the fix version as constant"
+    required: false
+  VERSION_SETTING_FILE_PATH:
+    description: "get the major version from a file."
+    required: false
+  TAG_PREFIX:
+    description: "prefix for the versioning"
+    required: false
+  VERSION_PREFIX:
+    description: "prefix for the versioning"
+    required: false
 runs:
   using: 'node12'
   main: 'dist/index.js'
