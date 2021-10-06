@@ -12888,7 +12888,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     });
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getJiraVersion = exports.updateJira = void 0;
+exports.getJiraVersion = exports.filterIssuesWithoutCurrentFixVersion = exports.updateJira = void 0;
 const core = __importStar(__nccwpck_require__(2186));
 const jiraApi_1 = __nccwpck_require__(929);
 const updateJira = (context, issueKeys, fixVersion) => __awaiter(void 0, void 0, void 0, function* () {
@@ -12896,7 +12896,7 @@ const updateJira = (context, issueKeys, fixVersion) => __awaiter(void 0, void 0,
         return;
     }
     core.info(`fixVersion:[${fixVersion}]`);
-    const issuesWithSubTasks = yield filterIssuesWithoutCurrentFixVersion(context, issueKeys, fixVersion);
+    const issuesWithSubTasks = yield (0, exports.filterIssuesWithoutCurrentFixVersion)(context, issueKeys, fixVersion);
     core.info(`issuesWithSubTasks:[${issuesWithSubTasks
         .map(issue => issue.key)
         .join(',')}]`);
@@ -12910,7 +12910,7 @@ const updateJira = (context, issueKeys, fixVersion) => __awaiter(void 0, void 0,
         }
     });
     core.info(`issuesKeysWithoutSubTasks:[${issuesKeysWithoutSubTasks.join(',')}]`);
-    const issues = yield filterIssuesWithoutCurrentFixVersion(context, issuesKeysWithoutSubTasks, fixVersion);
+    const issues = yield (0, exports.filterIssuesWithoutCurrentFixVersion)(context, issuesKeysWithoutSubTasks, fixVersion);
     if (!issues || issues.length === 0) {
         return;
     }
@@ -12957,15 +12957,24 @@ const updateJira = (context, issueKeys, fixVersion) => __awaiter(void 0, void 0,
 exports.updateJira = updateJira;
 const filterIssuesWithoutCurrentFixVersion = (context, issueKeys, fixVersion) => __awaiter(void 0, void 0, void 0, function* () {
     const { projectsKeys } = context;
-    const groupedIssues = issueKeys.join(',');
-    const searchIssuesWithoutCurrentFixVersion = `project in (${projectsKeys.join(',')}) AND (fixVersion not in (${fixVersion}) OR fixVersion is EMPTY) AND issuekey in (${groupedIssues})`;
-    core.info(`searchIssuesQuery:[${searchIssuesWithoutCurrentFixVersion}]`);
-    return yield (0, jiraApi_1.searchIssues)(context, searchIssuesWithoutCurrentFixVersion, [
-        'summary',
-        'issuetype',
-        'parent'
-    ]);
+    const batchSize = 4000;
+    let issueKeysResult = [];
+    let start = 0;
+    let end = 0;
+    do {
+        end = start + batchSize;
+        const currentBatch = issueKeys.slice(start, end);
+        const groupedIssues = currentBatch.join(',');
+        const searchIssuesWithoutCurrentFixVersion = `project in (${projectsKeys.join(',')}) AND (fixVersion not in (${fixVersion}) OR fixVersion is EMPTY) AND issuekey in (${groupedIssues})`;
+        core.info(`searchIssuesQuery:[${searchIssuesWithoutCurrentFixVersion}]`);
+        const currentResult = yield (0, jiraApi_1.searchIssues)(context, searchIssuesWithoutCurrentFixVersion, ['summary', 'issuetype', 'parent']);
+        core.info(`currentResult:[${currentResult.map(issue => issue.key).join(',')}]`);
+        issueKeysResult = issueKeysResult.concat(currentResult);
+        start = end;
+    } while (end < issueKeys.length);
+    return issueKeysResult;
 });
+exports.filterIssuesWithoutCurrentFixVersion = filterIssuesWithoutCurrentFixVersion;
 const getJiraVersion = (context, fixVersion, projectKey) => __awaiter(void 0, void 0, void 0, function* () {
     const versions = yield (0, jiraApi_1.listProjectVersions)(context, projectKey);
     const result = versions.filter(i => i.name === fixVersion);
