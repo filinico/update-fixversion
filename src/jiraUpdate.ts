@@ -89,22 +89,36 @@ export const updateJira = async (
   }
 }
 
-const filterIssuesWithoutCurrentFixVersion = async (
+export const filterIssuesWithoutCurrentFixVersion = async (
   context: JiraContext,
   issueKeys: string[],
   fixVersion: string
 ): Promise<SearchedJiraIssue[]> => {
   const {projectsKeys} = context
-  const groupedIssues = issueKeys.join(',')
-  const searchIssuesWithoutCurrentFixVersion = `project in (${projectsKeys.join(
-    ','
-  )}) AND (fixVersion not in (${fixVersion}) OR fixVersion is EMPTY) AND issuekey in (${groupedIssues})`
-  core.info(`searchIssuesQuery:[${searchIssuesWithoutCurrentFixVersion}]`)
-  return await searchIssues(context, searchIssuesWithoutCurrentFixVersion, [
-    'summary',
-    'issuetype',
-    'parent'
-  ])
+  const batchSize = 4000
+  let issueKeysResult: SearchedJiraIssue[] = []
+  let start = 0
+  let end = 0
+  do {
+    end = start + batchSize
+    const currentBatch = issueKeys.slice(start, end)
+    const groupedIssues = currentBatch.join(',')
+    const searchIssuesWithoutCurrentFixVersion = `project in (${projectsKeys.join(
+      ','
+    )}) AND (fixVersion not in (${fixVersion}) OR fixVersion is EMPTY) AND issuekey in (${groupedIssues})`
+    core.info(`searchIssuesQuery:[${searchIssuesWithoutCurrentFixVersion}]`)
+    const currentResult = await searchIssues(
+      context,
+      searchIssuesWithoutCurrentFixVersion,
+      ['summary', 'issuetype', 'parent']
+    )
+    core.info(
+      `currentResult:[${currentResult.map(issue => issue.key).join(',')}]`
+    )
+    issueKeysResult = issueKeysResult.concat(currentResult)
+    start = end
+  } while (end < issueKeys.length)
+  return issueKeysResult
 }
 
 export const getJiraVersion = async (
