@@ -26,7 +26,7 @@
   "dependencies": {
     "@actions/core": "^1.6.0",
     "@actions/github": "^4.0.0",
-    "axios": "^0.21.4",
+    "axios": "^1.1.3",
     "promisify-child-process": "^4.1.1"
   },
   "devDependencies": {
